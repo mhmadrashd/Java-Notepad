@@ -5,7 +5,17 @@
  */
 package mainPkg;
 
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
@@ -22,6 +32,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
 
 /**
@@ -49,6 +61,12 @@ public class MyMain extends Application {
     
     TextArea txtArea;
     Alert a ;
+    
+    FileChooser fileChooser;
+    File selectedFile;
+    FileReader dataIn;
+    FileWriter dataOut;
+    int stateOpenNewFile=0;
     @Override
     public void init(){
         //Main Elements
@@ -116,14 +134,56 @@ public class MyMain extends Application {
             @Override
             public void handle(ActionEvent t) {
                 if(!txtArea.getText().trim().equals("")){
+                    stateOpenNewFile=1;
                     a.setAlertType(AlertType.CONFIRMATION);
-                    a.setHeaderText("Create New File Will Remove All Data If You Don't Save");
+                    a.setHeaderText("Save current file before open other file?");
                     a.showAndWait().ifPresent(response -> {
                         if (response == ButtonType.OK) {
+                            fileChooser = new FileChooser();
+                            fileChooser.setTitle("Save");
+                            fileChooser.getExtensionFilters().add(new ExtensionFilter("Text Files", "*.txt"));
+                            selectedFile = fileChooser.showSaveDialog(stage);
+                            saveFile();
+                        }
+                        else{
                             txtArea.clear();
                         }
                     });
                 }
+            }
+        });
+        itOpenFile.setOnAction( new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent t) {
+                if(!txtArea.getText().trim().equals("")){
+                    a.setAlertType(AlertType.CONFIRMATION);
+                    a.setHeaderText("Save current file before open other file?");
+                    a.showAndWait().ifPresent(response -> {
+                        if (response == ButtonType.OK) {
+                            fileChooser = new FileChooser();
+                            fileChooser.setTitle("Save");
+                            fileChooser.getExtensionFilters().add(new ExtensionFilter("Text Files", "*.txt"));
+                            selectedFile = fileChooser.showSaveDialog(stage);
+                            saveFile();
+                        }
+                    });
+                }
+                fileChooser = new FileChooser();
+                fileChooser.setTitle("Open Text File");
+                fileChooser.getExtensionFilters().add(
+                        new ExtensionFilter("Text Files", "*.txt"));
+                selectedFile = fileChooser.showOpenDialog(stage);
+                openFile();
+            }
+        });
+        itSaveFile.setOnAction( new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent t) {
+                fileChooser = new FileChooser();
+                fileChooser.setTitle("Save");
+                fileChooser.getExtensionFilters().add(new ExtensionFilter("Text Files", "*.txt"));
+                selectedFile = fileChooser.showSaveDialog(stage);
+                saveFile();
             }
         });
         itExitFile.setOnAction( new EventHandler<ActionEvent>() {
@@ -201,6 +261,87 @@ public class MyMain extends Application {
         stage.setTitle("My Notepad");
         stage.setScene(myScene);
         stage.show();
+        
+        
+    }
+    int fileLength;
+    char[] charData;
+    public void openFile(){
+        Runnable runnOpenFile = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    runOpenFile();
+                } catch (IOException ex) {
+                    Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        };
+        Thread myThread = new Thread(runnOpenFile);
+        myThread.setDaemon(true);
+        myThread.start();
+    }
+    public void runOpenFile() throws IOException{
+        if (selectedFile != null) {
+            System.out.println(selectedFile);
+            txtArea.clear();
+            Platform.runLater(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                    dataIn = new FileReader(selectedFile);
+                            for(int i=0; i<selectedFile.length();i++){
+                                fileLength = (int)selectedFile.length();
+                                charData = new char[fileLength];
+                                txtArea.appendText(String.valueOf((char)dataIn.read()));
+                            }
+                            dataIn.close();
+                        } catch (FileNotFoundException ex) {
+                            Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (IOException ex) {
+                        Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            });
+            
+        }
     }
     
+    public void saveFile(){
+        Runnable runnOpenFile = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    runSaveFile();
+                } catch (IOException ex) {
+                    Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        };
+        Thread myThread = new Thread(runnOpenFile);
+        myThread.setDaemon(true);
+        myThread.start();
+    }
+    public void runSaveFile() throws IOException{
+        if (selectedFile != null) {
+            Platform.runLater(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        dataOut = new FileWriter(selectedFile);
+                        dataOut.write(txtArea.getText());
+                        dataOut.close();
+                        if(stateOpenNewFile == 1){
+                            txtArea.clear();
+                            stateOpenNewFile = 0;
+                        }
+                        } catch (FileNotFoundException ex) {
+                            Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (IOException ex) {
+                        Logger.getLogger(MyMain.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            });
+        }
+    }
 }
